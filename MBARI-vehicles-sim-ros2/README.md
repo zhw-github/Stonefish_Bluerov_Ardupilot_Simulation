@@ -1,0 +1,476 @@
+# MBARI Vehicles Simulation with Stonefish and Gazebo + ROS2
+**Unofficial MBARI's ROV Simulation and Control Project** <br/>
+I started this project because of my interest in underwater robotics and fascination with the [MBARI](https://www.mbari.org/) Oceanographic Institute. <br/>
+
+<image width=200 heigth=150 src=assets/images/MOLA_sim.png> <image width=218 heigth=150 src=assets/images/Ricketts_sim.png><img width=225 heigth=150 src=https://github.com/user-attachments/assets/89e07d87-b08a-4938-88d9-c57e42595556>
+
+## Implemented Simulations
+
+- [Stonefish Simulation ROS2](#stonefish-simulation-ros2) | Under development
+    - [MOLA AUV](#mola-auv)
+    - [ROV Doc Ricketts](#rov-doc-ricketts)  
+- [Gazebo Simulation ROS2](#gazebo-simulation-ros2) | Archived
+    - [ROV Doc Ricketts](#rov-doc-ricketts)
+ 
+- [References](#references)
+
+## Stonefish Simulation ros2
+**UNDER DEVELOPMENT** <br/>
+Underwater World Simulation | ROV | ROS2 Jazzy | Stonefish | <br/>
+
+**Stonefish** is a C++ library tailored for marine robotics simulations, with a lightweight rendering pipeline and realistic hydrodynamics.<br/>
+It provides ready to use underwater sensors and a realistic light simulation for the underwater environment (absorption, scattering, marine snow). Read more about stonefish in the [official documentation](https://stonefish.readthedocs.io/en/latest/). <br/>
+Moreover, wrapper for ROS1 and [ROS2](https://github.com/patrykcieslak/stonefish_ros2) are open source and easy to use!
+
+**NOTE**: For a basic implementation without additional thirdparty packages and libraries (e.g. orbslam3), refer to the [`basic` branch](https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2/tree/basic). 
+<details closed>
+<summary> How to build this workspace </summary>
+
+[stonefish_ws](https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2/tree/main/stonefish_ws/src) depends on both **stonefish_ros2** and the **stonefish** library itself. 
+
+**Stonefish**: <br/>
+Differently from other realistic simulator developed for underwater robotics (such as [HoloOcean](https://robots.et.byu.edu/holoocean/) and [OceanSim](https://umfieldrobotics.github.io/OceanSim/)) it doesn't rely on any external gaming engine and the requirements are not prohibitive. <br/>
+Follow the instructions on the [official repo](https://github.com/patrykcieslak/stonefish?tab=readme-ov-file#installation) to install it. <br/>
+For a step-by-step installation of stonefish with some additional comments take a look at this [readme](https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2/blob/main/INSTALLATION_TROUBLESHOOTING.md). 
+
+**stonefish_ros2**: <br/>
+Once the Stonefish library has been installed, installing the ROS2 wrapper consist in the usual workspace build ! <br/>
+(More about stonefish_ros2 in the [official repo](https://github.com/patrykcieslak/stonefish_ros2)) <br/>
+
+In this repository, stonefish_ros2 is already in the workspace. By building the `stonefish_ws` you are building also the wrapper. 
+
+
+**IMPORTANT NOTE**:
+Make sure you have both the stonefish library and stonefish_ros2 with the same version.
+Both are active project and continue to evolve, possible compatibility issues may arise in case of different versions. 
+
+For any issue don't hesitate to write me or open an Issue. <br/>
+Since this project will be a learning and experimenting repo, I may include external ROS2 packages or other library that may broke the build process. 
+I will take care of reporting those. <br/>
+For a basic implementation without additional thirdparty packages and libraries (e.g. orbslam3), refer to the [`basic` branch](https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2/tree/basic)
+
+</details>
+
+
+### MOLA AUV: 
+[MOLA AUV = multimodality, observing, low-cost, agile autonomous underwater vehicle]
+
+<image width=356 heigth=263 src=assets/images/MOLA_sim.png> <image width=332 heigth=263 src=assets/images/MOLA.jpg>
+
+Attempt to create a stonefish based ROS2 simulation of MOLA AUV, a novel underwater vehicle from MABRI's [CoMPAS Lab](https://www.mbari.org/team/compas-lab-control-modeling-and-perception-of-autonomous-systems-laboratory/). The purpose of this simulation is to experiment with a 6DOFs agile and hydrobathic AUV, integrating its actuation and sensing technologies.
+I try to respect as much as possible the real system, based on available vehicle informations such as the official descriptions and papers in which it is used. However, some paramters of the vehicle are not fully accurate and based on realistic assumptions (geometry, density distribution, thruster motors, and sensors configuration)
+
+
+### Running MOLA simulations
+
+To launch the full simulation with the joystick based teleoperation and additional ROS2 nodes responsible for rviz visualization and ground truth publishing 
+
+```
+ros2 launch mola_auv_sim mola_auv_sim_teleop.launch.py
+```
+
+The loaded underwater simulation world is specified as a [launch argument](stonefish_ws/src/MOLA_AUV/mola_auv_sim/launch/mola_auv_sim_teleop.launch.py#L39) of the stonefish simulator launcher in [``stonefish_simulator.launch.py``](stonefish_ws/src/MOLA_AUV/mola_auv_sim/launch/mola_auv_sim_teleop.launch.py).
+
+I'm actively defining new underwater world, you can find the available ones in [``mola_auv_sim/scenarios``](stonefish_ws/src/MOLA_AUV/mola_auv_sim/scenarios). Right now the avilable ones are: 
+- ``coral_reef.scn``: define a small coral reef with some coral reef restoration frames. The restoration frames contain apriltag markers to support robust localization and navigation. 
+- ``tank.scn``: define an approximated digital twing of the salt water test tank of MBARI. A prototype docking station with fiducial apriltag markers is integrated in the simulation and can be easily removed. Adittionally, lights on the side of the tanks are integrated and can be switched on/off (pressing share+options if properly configured in the teleop node). 
+
+Note that unfortunately the 3D model is currently not optimal for interacting with object with complex collision shapes (like the docking station). Now I'm focusing on the perception aspects, but I may soon investigate on how to optimize that aspect.
+
+
+Additional ROS2 nodes are available and can be easily integrated in the launch file or excecuted opening another terminal while the simulation is running.
+
+**Plotting Sensors Reading** (Protptype) <br>
+
+To open a window with the readings from the IMU (accelerometer + gyroscope), DVL (linear velocity + altitude from seafloor), depth, run the following node:
+
+```
+ros2 run mola_auv_estimation mola_auv_plot
+```
+
+**Localizing and Classifing AprilTag Markers** <br>
+
+To localize apriltag markers, the python apriltag library is used. 
+While for Aruco markers it existis some ROS2 packages, here I just tried to integrate the features using the basic python library.
+
+Since it is not recommended to install additional python packages in the basic environment, I'm handling additional libraries with a conda enviornment. <br> 
+**Discaimer**: The way how I run externally installed python packages in my python nodes is probably not the best practice. 
+
+Create the conda environment, activate the env and install the apriltag library.
+
+Force ROS to use the conda packages, for example with a python3.12  environment 
+
+```
+export PYTHONPATH=$CONDA_PREFIX/lib/python3.12/site-packages:$PYTHONPATH
+```
+Now you should be able to run the node without getting the error of the library not found. 
+
+```
+ros2 run mola_auv_estimation mola_auv_apriltag
+```
+
+There is definitely a better way to handle external python packages in ros2 python nodes... I'm planning to document better on this, since I'm planning to integrate many other external libraries (such as ultarlytics for YOLO models).
+
+**Running Monocular ORB-SLAM3** <br>
+ 
+I have tested an open source [ORB-SLAM3 ROS2 wrapper](https://github.com/zang09/ORB_SLAM3_ROS2), which may require some time to be properly installed. That package is currently in the [/thridparty](stonefish_ws/src/thirdparty) directory, and by default the build is skipped thanks to the [``COLCON_IGNORE``](stonefish_ws/src/thirdparty/ORB_SLAM3_ROS2/COLCON_IGNORE) file. <br>
+After properly setting up the wrapper and unzipping the ORBvoc.txt.tar.gz, you can easily use it with the MOLA AUV. For now I've tested only the monocular VSLAM. I'm looking for another ORB-SLAM3 ROS2 wrapper, since this one doesn't integrate well in the ROS2 echosystem. 
+
+To start the monocular node, from the [ORB_SLAM3_ROS2](stonefish_ws/src/thirdparty/ORB_SLAM3_ROS2/) directory:
+- vocabulary/ORBvoc.txt = <path_to_vocabulary> <br>
+- config/monocular/stonefishMOLA.yaml= <path_to_yaml_config> <br>
+<br>
+
+```
+ros2 run orbslam3_mbari mono vocabulary/ORBvoc.txt config/monocular/stonefishMOLA.yaml
+```
+
+
+### The (current) ROS2 Components behind the simulation
+
+The simulation is based on the C++ stonefish library, wrapped by stonefish_ros2. Once the scenario files for the environment, world, and robot is defined, it is ready to be launched from the ``stonefish_simulator.launch.py``.
+
+
+
+### Implementation details 
+Details on how the simulation model has been implemented. 
+Documenting this process could guide anyone that wants to define his custom model. Additionally, the implementation details on this model is helpful to understand and customize the current simulation.
+
+#### Step 0: Define the 3D Geometric Model
+I start by analyzing the geometric structure and dimensions of the MOLA AUV from the [official MBARI's post](https://www.mbari.org/news/mbaris-newest-underwater-robot-seeks-to-make-ocean-exploration-more-accessible/) presenting the new platform and the extensive [vehicle description](https://www.mbari.org/technology/mola-auv/). Being a custom [Boxfish AUV](https://www.boxfishrobotics.com/products/boxfish-auv/boxfish-auv-features/) platform, I get additional information and search online for any useful related information. 
+
+Finally, I model the structure and painted the simple textures in blender, using simple geometries. This first model is used just for visualization purpose (left image below).
+In parallel, I model a simplified physical model (right image below), that will allow to make hydrodynamics faster and more realistic in stonefish. <br>
+(You can find model on my [sketchfab](https://sketchfab.com/3d-models/unofficial-mbari-mola-auv-8414b1b7e94c4212a5e7fcd667551858). I also uplad simple 3d models for simulation on my [profile](https://sketchfab.com/AlessandroPuglisi))
+
+<image width=380 heigth=229 src=assets/images/MOLA_blender.png> <image width=380 heigth=229 src=assets/images/MOLA_blender_phy.png>
+
+#### Step 1.a: Define the Robot description for stonefish (.scn)
+
+The basic stonefish scenario file of a robot require the materials, looks and base link (refer to the official [documentation](https://stonefish.readthedocs.io/en/latest/index.html))
+
+Stonefish use the NED reference system, simple to respect by using the [guidelines from the documentation](https://stonefish.readthedocs.io/en/latest/scenario.html#preparing-geometry-files).
+
+Right now, the physical behavior is realistic and the system is neutrally buoyant, thanks to a fine tuning of the links' properties. 
+Despite this, I don't think that the current model captures the real dynamics of the system. 
+Therefore, better tuning may be required if you want to use this simulation to test model-based control algorithms or anything else that requires an accurate dynamic model.  
+
+
+#### Step 1.b: Define the Robot description for rviz (.xacro.urdf)
+
+Diffeently from the scenario file, the urdf in this case is just used to have a robot model for visualization in ROS2. 
+Remember that Stonefish is supposed to be the real system, and you would like to have some online visualization tool such as rviz. <br>
+
+To define the 3d model for rviz, the propellers are considered fixed, while the joint state of the light servo are revolute joints.
+The state of those servos is published by [``mola_auv_joint_states_simple``](stonefish_ws/src/MOLA_AUV/mola_auv_control/mola_auv_control/mola_auv_joint_states_simple.py), a node that broadcast useful joint states for visualization and control.
+
+#### Step 2: Integrating MOLA thrusters
+
+#### Step 3: Integarting Additional Actuators (e.g. Lights, Servo)
+
+#### Step 4: Integrating Sensors
+
+#### Step 5: Defining a Custom World
+
+#### Step 6: Implementing additonal ROS2 Nodes for Stonefish-ROS mapping
+
+#### Step 7: Implementing Teleopeartion ROS2 Node 
+
+
+#### Step 8: Launching the Simulation ! 
+
+
+
+
+### ROV Doc Ricketts
+<image width=400 heigth=275 src=assets/images/Ricketts_sim.png> <image width=348 heigth=275 src=assets/images/Ricketts.jpg>
+
+## Gazebo Simulation ros2
+**ARCHIVED**<br/>
+Underwater World Simulation | ROV | ROS2 Jazzy | Gazebo Harmonic | <br/>
+
+I'm no more updating and improving the simulation in Gazebo, since I switch to differenty simulators tailored to the underwater domain (such as stonefish). <br/>
+Even if this part of the project is "archived", It still contain some valuable information to set up your own Gazebo simulation for a robotics project. <br/>
+
+Moreover, from the moment in which I was working on this project (April 2025), Gazebo underwater sensors and plug-ins may have been upgraded ! 
+
+### ROV Doc Ricketts
+<image width=375 heigth=250 src=https://github.com/user-attachments/assets/5a26e743-ca25-4e6b-828f-766e30c5d696>
+<img width=375 heigth=250 src=https://github.com/user-attachments/assets/89e07d87-b08a-4938-88d9-c57e42595556>
+
+> [!IMPORTANT]
+> To visualize the documentation of the commands only, look at this [commands sheet readme](https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2/blob/main/gazebo_ws/COMMANDS-SHEET.md). 
+
+During this project, I want to learn how to set up an underwater world simulation with ROS2 and Gazebo. <br/>
+Gazebo Classic has reached its end of life, and it is time to learn how to use Gazebo sim. <br/>
+Due to some rendering and world dimension limitations of Gazebo, soon, I want to explore other robotics simulators, like [NVIDIA Omniverse IsaacSim](https://docs.omniverse.nvidia.com/isaacsim/latest/index.html). 
+
+### Final (long-term) Objective
+Thanks to the huge amount of available models of ROV, Environments, and Creatures gifted by MBARI on [sketchfab](https://sketchfab.com/search?q=mbari&type=models), I want to: 
+- Create a URDF Model of MBARI's  [ROV Doc Ricketts](https://www.mbari.org/technology/rov-doc-ricketts/)
+   - Model each thruster as an independent joint
+   - Model and Integrate the actuated ROV's Manipulator (with all joints) <br/>
+     (Even If currently Ricketts has 2 arms for advanced manipulation tasks, I will consider this only in the future) 
+- Define an approximated fluid dynamic model of the ROV, for simulation
+- Learn to correctly set up Gazebo sim plugins to simulate thrusters, buoyancy, and fluid dynamics force
+- Create a custom sdf world file, with deep-sea environments from MBARI's 3D sea floor reconstruction 
+- Add deep sea creatures as [Gazebo Actors](https://gazebosim.org/docs/latest/actors/), to make this world even more alive. <br/>
+  This is possible thanks to [Photogrammetry Techniques](https://www.mbari.org/wp-content/uploads/Kaiser_Nicole.pdf) used by MBARI.
+- Implement high and low-level ROS nodes to control and teleoperate the ROV motion (exploiting the 7 thrusters) 
+- Implement high and low-level ROS nodes to control and teleoperate the ROV Arm (including Gripper operations)
+- Add light sources, cameras, and other exteroceptive/proprioceptive sensors to the Robot Model. 
+- Implement control on Pan-Tilt Camera motion
+- Set up needed TFs, sensors, topics, and odometry to Enable Mapping with SLAM
+- Set up Autonomous Navigation Features
+- Implement high-level algorithms for Visual Tracking of deep water animals <br/>
+  (Due to Gazebo's Limitations in rendering camera images, this may require moving to IsaacSim)
+- Implement high-level algorithms for Visual Servo Control of the ROV Robotic Arm.
+- ...
+
+> [!TIP]
+> The following steps can be useful for anyone who wants to create a Robotic Simulation from the robot mesh! <br/>
+> Here world and robot plugins will be underwater specific, but the high-level concepts remain the same even for a ground vehicle. <br/>
+> This is why I'll try to describe the implementation step as clearly as possible.<br/>
+> Later on I will provide a concise command sheet to run the simulation and use its functionalities. 
+
+
+... This is a lot just for a single person, :raised_hand_with_fingers_splayed: a big high five to anyone opening an issue for suggestions, ideas, or reviews. <br/>
+Feel free to [Pull Requests](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) to contribute to this project. <br/>
+
+This emoji " :point_right: "Indicates the current step in development. 
+
+### Step 0. Install and Set up ROS2 + Used ROS Packages 
+### Prerequisite
+- Linux Ubuntu 24.04 
+- ROS2 Jazzy
+> [!NOTE]
+> Alternatively, you can build a ``Docker`` container to work with ROS2 Jazzy in your OS.<br/>
+> If you are using Docker, refer to this section just to know the required dependencies.
+
+<details> 
+<summary> Install and Set Up ROS2 Jazzy </summary>
+   
+- **Install** ROS Jazzy and source 
+Refer to [ros documentation](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html) for the step-by-step installation tutorial. <br/>
+
+Anytime you open a new terminal, you should source your underlay ros environment with:
+```
+# Terminal
+# Replace ".bash" with your shell if you're not using bash
+# Possible values are: setup.bash, setup.sh, setup.zsh
+source /opt/ros/jazzy/setup.bash
+```
+To avoid doing it every time, add that command to your ``bashrc``, opening it with a text editor of your choice:
+```
+# Terminal (use your preferred text editor tool)
+gedit ~/.bashrc
+```
+And add the line ``source /opt/ros/jazzy/setup.bash`` at the end.
+
+- If not automatically installed, **install ``colcon``**, the build tool for ROS2: 
+```
+# Terminal
+sudo apt install python3-colcon-common-extensions
+```
+
+- Create and build a **ros2 workspace** to position this project packages:<br/>
+In your preferred directory
+```
+# Terminal
+mkdir ros2_ws
+cd ros2_ws
+mkdir src
+colcon build
+```
+
+- **Source** your ros2 workspace and the colcon argmícomplete environment:<br/>
+As done for the ros underlay, you need to source the overlay setup.bash when you build it, again you can add that to the bashrc
+```
+# Terminal
+gedit ~/.bashrc
+```
+Add the line ``source ~/ros2_ws/install/setup.bash`` <br/>
+and ``source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash`` to complete colocn commands by pressing Tab.
+
+### Install Additional Packages
+To launch this project packages, you may need ROS2 packages not installed with ros-jazzy-desktop. <br/>
+I will update this list during implementation:
+
+- ``xacro``
+- ``joint_state_publisher_gui``
+- ...
+
+```
+# Terminal
+sudo apt install ros-jazzy-xacro ros-jazzy-joint-state-publisher-gui 
+```
+</details>
+
+### Clone this repository and build 
+Move to your ros workspace, inside /src folder (where all your packages are located) 
+```
+# Terminal
+git clone https://github.com/AlePuglisi/MBARI-vehicles-sim-ros2.git
+```
+then, move back to the workspace folder (before /src), and build your workspace.<br/>
+Now you are ready to test this project!<br/>
+(Remember that after building the workspace, you need to source your bashrc, so your overlay and underlay will be sourced, just run ``source ~/.bashrc``)
+
+### :point_right: Step 1. Set up The Simulation
+
+### 1.1. Create ROV Ricketts URDF from Sketchfab Model
+- First I download [Doc Ricketts ROV](https://sketchfab.com/3d-models/doc-ricketts-rov-def365ad47894a06b5f0fb2876795bf9) model from Sketchfab, in ``fbx`` format.
+- Import it in Blender to create separate meshes (with texture) for each piece
+- Export each model as ``dae`` (COLLADA format)<br/>
+
+> [!TIP]
+> I discovered that ``stl `` format does not support texture by default, setting it up may be possible but hard. <br/>
+> [Here](https://github.com/AlePuglisi/ROV-Ricketts-ros2/tree/main/rov_ricketts_description/meshes/stl) you can find stl models, but for an astonishing visualization, rely on ``dae``.<br/>
+> With the COLLADA format, textures are easy to load (just be sure the texture png file is in the correct referenced path inside dae XML file). 
+
+- Create the ``URDF`` connecting and positioning each thruster, as a revolute joint (probably continuous joint will be used later on). <br/>
+I used the ``xacro`` format, to make it cleaner and allow a simple customization at launch time. 
+- Inertia property tuning will be done later on when setting up Gazebo simulation
+- Creta a simple launcher [``display.launch.py``](https://github.com/AlePuglisi/ROV-Ricketts-ros2/blob/main/rov_ricketts_description/launch/display.launch.py) to run Rviz, robot_state_publisher, joint_state_publisher (and its GUI).
+- Add relevant visualization objects in Rviz and save as [`` rov_monitor.rviz`` ](https://github.com/AlePuglisi/ROV-Ricketts-ros2/blob/main/rov_ricketts_description/config/rov_monitor.rviz). 
+
+Finally, it is possible to visualize the robot in Rviz and move the thrusters with joint_state_publisher_gui: <br/>
+```
+# Terminal
+ros2 launch rov_ricketts_description display.launch.py
+```
+
+<image src=https://github.com/user-attachments/assets/cbda4232-3072-4fbb-bc24-a6344e62501a>
+   
+
+The next step is to model and attach the robotic arm to Doc Ricketts.<br/>
+
+###  1.2. Add ROV Manipulator to the URDF Model 
+The arm is defined as a single piece in the 3D model, three options are possible to derive the URDF model:
+- [ ] 1. Remodel it with simple cylinders and parallelepiped shapes, connected by revolute joints, directly in URDF.
+- [ ] 2. Create a new 3D model from scratch, with separate links, using the original arm as a reference
+- [x] 3. Use the original model and modify it to cut the links, then use this as URDF links
+
+<br/>
+<image src=https://github.com/user-attachments/assets/c58b649c-45cf-4ff8-883d-6c081f94382e>
+
+   
+I found the information about the robotic arm on [this interesting video](https://www.youtube.com/watch?v=BTdeXxaGfAs&t=303s&ab_channel=MBARI%28MontereyBayAquariumResearchInstitute%29) about ROV technologies at MBARI.<br/>
+Thank you very much, Benjamin Erwin :pray:. <br/>
+ROV Doc Ricketts is equipped with two robotic arms: 
+- **Shilling TITAN 4 Manipulaotr** (T4): Strong Titanium arm, for heavy work but less precise.
+- **Kraft TeleRobotics PREDATOR Manipulator**: Aluminum Arm, very dexterous, for precise manipulation. 
+The combination of the two ensures a trade-off between precision and power. 
+
+I only modeled the [T4 manipulator](https://www.technipfmc.com/media/hpkjrigr/titan-4-datasheet.pdf),  available in the 3D Model. <br/>
+ (In the URDF, I include the **arm_tool** frame, because this will help when performing manipulation tasks.)
+
+> [!TIP]
+> A useful tag to define **gripper joints** is "mimic": <br/>
+>
+>     <joint name="${name}_link4_claw_left" type="revolute">
+>     <mimic joint="${name}_link4_claw_right" multiplier="1" offset="0"/>
+>     ....
+> 
+> This forces this joint to move around its rotation axis as the mimic joint times the multiplier.<br/>
+> (joint_state = mimic_joint_state * multiplier) <br/>
+> Changing the multiplier value we can set an inverse rotation or a transformation ratio.
+
+> [!NOTE]
+> The default gazebo physics solver skip mimic joint constraints.
+> This is not a real issue, the gripper commands will be handled using
+> a ros2_control ``position_controllers/GripperActionController``
+
+
+Once Doc Ricketts Arm URDF has been defined, to load T4 arm, we can use a launch argument and the xacro conditional statement. <br/>
+
+- To configure Ricketts **with the Robotic Arm**: 
+```
+# Terminal
+ros2 launch rov_ricketts_description display.launch.py load_arm:=true
+```
+- To configure Ricketts **without the Robotic Arm**: 
+```
+# Terminal
+ros2 launch rov_ricketts_description display.launch.py load_arm:=false
+```
+(Notice that the default value of load_arm is false, so argument initialization can be neglected in that case)
+
+As can be seen, all joints have been articulated properly! <br/>
+Brief **Joint actuation Demo**:mechanical_arm:: 
+
+<image src=https://github.com/user-attachments/assets/5c3c9c66-c7f4-4276-957b-2d1cf4b8ae2d>
+
+Joint limits and dynamic joints/body properties (Inertia, Center of mass, etc..) will be defined in the next steps...
+
+### 1.3. Tune Model Inertia parameters
+Inertial parameters of are fundamental for setting up Gazebo simulation (see the official documentation [tutorial](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/Adding-Physical-and-Collision-Properties-to-a-URDF-Model.html)). <br/>
+   - ``<origin>``: position of the CoM, with respect to link frame [m]
+   - ``<mass>``: link mass [kg]
+   - ``<inertia>``: 3x3 inertia tensor [kg*m^2]
+
+ For a reliable simulation in Gazebo, we have to define the mass, inertia matrix, and center of mass position of each link. <br/>
+ I have used [trimesh](https://trimesh.org/), a Python library to compute mesh properties such as volume, CoM position, and inertia. 
+
+- **T4 Manipulator**: <br/>
+Using Titanium density, we can then use the mesh volume to compute each link's mass and CoM position.
+The Inertia matrix is normalized, so I had to multiply by mass/volume to bring it to the standard unit.
+- **ROV Body and Propellers**: <br/>
+The **propellers** are assumed to be made of aluminum (commonly used underwater because of corrosion resistance). <br/> 
+For the **base**, modeled as a unique body, a constant density hypothesis was not possible. MBARI's website provides information about
+its mass value. However, because of the complex mesh shape and discontinuous density distribution,``trimesh`` computation gives an unreliable inertia value. <br/>
+For this reason, base inertia and CoM are computed using a simple box shape of uniform density.<br/>
+Furthermore, base ``<collision>`` is simplified to reduce simulation complexity, using the same box as the inertial one. 
+<img width=300 heigth=200 src=https://github.com/user-attachments/assets/ad94bc53-9f3f-4a74-b00f-8a6e879ca8b9>
+<img width=300 heigth=200 src=https://github.com/user-attachments/assets/9aa45b22-cd74-4720-b734-c7d4c19a2181>
+<img width=300 heigth=200 src=https://github.com/user-attachments/assets/05cc1fa0-e875-42f7-9da0-2c02a59ecda1>
+
+
+
+### 1.4. Add and Tune Buoyancy, fluid dynamic, thruster actuators, and ligths Gazebo sim plugins
+
+### 1.5. Set up an underwater World in Gazebo Harmonic
+<img width=470 heigth=400 src=https://github.com/user-attachments/assets/0bf0a30f-8224-4e0a-95b1-83ac638adb4e>
+<img width=470 heigth=400 src=https://github.com/user-attachments/assets/031b6c89-4a83-423f-9603-b400da519277>
+
+```
+# Terminal
+ros2 launch rov_ricketts_sim rov_sim.launch.py 
+```
+
+### To select the world sdf:
+
+It is possible to use the "world:=" launch argument
+The first figure on the left comes from **ocean.sdf** load also the ocean surface:
+```
+# Terminal
+ros2 launch rov_ricketts_sim rov_sim.launch.py world:=~/ros2_ws/src/ROV-Ricketts-ros2/rov_ricketts_sim/worlds/ocean.sdf 
+```
+
+To spawn directly the robot in the underwater canyon, load it in **underwater_world.sdf** world:
+```
+# Terminal
+ros2 launch rov_ricketts_sim rov_sim.launch.py world:=~/ros2_ws/src/ROV-Ricketts-ros2/rov_ricketts_sim/worlds/underwater_world.sdf 
+```
+
+<img width=450 heigth=300 src=https://github.com/user-attachments/assets/89e07d87-b08a-4938-88d9-c57e42595556>
+
+
+
+### 1.6. Move ROV Ricketts in the Gazebo World
+
+I'm not yet a good ROV pilot!
+Adjustments on plugin parameters and a GUI or joypad teleoperation will be implemented to make Ricketts easy to operate.
+
+<image src=https://github.com/user-attachments/assets/d2cdf1e2-7910-4672-8660-4bd7bc90544e>
+
+### ... Archived ... 
+I'm integrating with Stonefish the other features that I was planning to integrate in Gazebo...
+
+## References
+
+- M. Grimaldi, P. Cieslak, E. Ochoa, V. Bharti, H. Rajani, I. Carlucho, M. Koskinopoulou, Y. R. Petillot, N. Gracias, "Stonefish: Supporting Machine Learning Research in Marine Robotics", arXiv, feb. 2025, url: [https://arxiv.org/abs/2502.11887](https://arxiv.org/abs/2502.11887)
+
+- P. Cieslak, "Stonefish: An Advanced Open-Source Simulation Tool Designed for Marine Robotics, With a ROS Interface", Proceedings of MTS/IEEE OCEANS jun. 2019, doi: [10.1109/OCEANSE.2019.8867434](10.1109/OCEANSE.2019.8867434)
+
+- ...
